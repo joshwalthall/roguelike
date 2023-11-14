@@ -13,7 +13,7 @@ const Map = (function () {
     const tileCountX = 28;
     const tileCountY = 18;
     const gridRows = [];
-    const dirtChance = 0.10;
+    const dirtChance = 0.07;
 
     const _setTileCounts = () => {
         mapContainer.style.gridTemplateRows = `repeat(${tileCountY}, ${tileSize}px)`;
@@ -23,12 +23,19 @@ const Map = (function () {
         for (y = 1; y <= tileCountY; y++) {
             let gridRow = [];
             for (x = 1; x <= tileCountX; x++) {
-                let gridSquare = document.createElement('div');
-                gridSquare.style.gridArea = `${y} / ${x} / ${y+1} / ${x+1}`;
-                gridSquare.style.width = `${tileSize}px`;
-                gridSquare.style.height = `${tileSize}px`;
-                gridSquare.classList.add('map-tile');
-                mapContainer.appendChild(gridSquare);
+                let gridSquareDiv = document.createElement('div');
+                gridSquareDiv.style.gridArea = `${y} / ${x} / ${y+1} / ${x+1}`;
+                gridSquareDiv.style.width = `${tileSize}px`;
+                gridSquareDiv.style.height = `${tileSize}px`;
+                gridSquareDiv.classList.add('grid-square');
+                mapContainer.appendChild(gridSquareDiv);
+                const gridSquare = {
+                    div: gridSquareDiv,
+                    actor: null,
+                    items: [],
+                    object: null,
+                    imgSrc: "",
+                };
                 gridRow.push(gridSquare);
             };
             gridRows.push(gridRow);
@@ -38,7 +45,7 @@ const Map = (function () {
         for (y = 0; y < tileCountY; y++) {
             let gridRow = gridRows[y]; // Get row by grid y index
             for (x = 0; x < tileCountX; x++) {
-                let gridSquare = gridRow[x]; // Get grid square by row x index
+                let gridSquareDiv = gridRow[x].div; // Get div by row x index
                 let randomNumber = Math.random();
                 let tileImage = new Image(tileSize, tileSize);
                 if (randomNumber <= dirtChance) {
@@ -46,7 +53,7 @@ const Map = (function () {
                 } else {
                     tileImage.src = blankImgSrc;
                 };
-                gridSquare.appendChild(tileImage);
+                gridSquareDiv.appendChild(tileImage);
             };
         };
     };
