@@ -4,6 +4,7 @@ const mapContainer = document.getElementById('map-container');
 const blankImgSrc = "assets/img/blank.png";
 const playerImgSrc = "assets/img/player_32px.png";
 const dirtImgSrc = "assets/img/dirt.png";
+const wallImgSrc = "assets/img/wall.png";
 
 const moveUp = "w";
 const moveLeft = "a";
@@ -12,10 +13,11 @@ const moveRight = "d";
 
 const Map = (function () {
     const tileSize = 32; // Will be converted to pixels
-    const tileCount = {X: 28, Y: 18}; // Map width and height in tiles
+    const tileCount = {X: 35, Y: 21}; // Map width and height in tiles
     const playerStartPos = {X: 11, Y: 6};
     const gridRows = [];
-    const dirtChance = 0.07;
+    const dirtChance = 0.13;
+    const wallChance = 0.1;
 
     const _setTileCounts = () => {
         mapContainer.style.gridTemplateRows = `repeat(${tileCount.Y}, ${tileSize}px)`;
@@ -35,7 +37,7 @@ const Map = (function () {
                     div: gridTileDiv,
                     img: null,
                     actor: null,
-                    object: null,
+                    obstacle: null,
                     items: [],
                     baseImgSrc: "",
                     displayImgSrc: "",
@@ -55,7 +57,11 @@ const Map = (function () {
                 gridTile.img = tileImage;
                 let baseImgSrc = "";
                 let randomNumber = Math.random();                
-                if (randomNumber <= dirtChance) {
+                if (randomNumber <= wallChance) {
+                    let wallTile = Obstacle("wall", wallImgSrc);
+                    gridTile.obstacle = wallTile;
+                    baseImgSrc = wallTile.imgSrc;
+                } else if (randomNumber <= dirtChance) {
                     baseImgSrc = dirtImgSrc;
                 } else {
                     baseImgSrc = blankImgSrc;
@@ -67,15 +73,15 @@ const Map = (function () {
             };
         };
     };
-    const _getTile = (tilePos) => {
-        return gridRows[tilePos.Y][tilePos.X];
-    };
     const _updateTileImg = (tile, newImgSrc) => {
         tile.displayImgSrc = newImgSrc;
         tile.img.src = tile.displayImgSrc;
     };
+    const getTile = (tilePos) => {
+        return gridRows[tilePos.Y][tilePos.X];
+    };
     const updateTileActor = (tilePos, tileActor) => {
-        let tile = _getTile(tilePos);
+        let tile = getTile(tilePos);
         tile.actor = tileActor;
         let newImgSrc = "";
         if (tileActor === null) {
@@ -96,6 +102,7 @@ const Map = (function () {
         tileCount,
         playerStartPos,
         initializeGrid,
+        getTile,
         updateTileActor,
     };
 })();
@@ -105,28 +112,48 @@ const Actor = (actorType, actorImgSrc, startPos) => {
     const pos = {X: startPos.X, Y: startPos.Y};
     let imgSrc = actorImgSrc;
 
-    const _setPos = (newPosX, newPosY) => {
-        pos.X = newPosX;
-        pos.Y = newPosY;
+    const _setPos = (newPos) => {
+        pos.X = newPos.X;
+        pos.Y = newPos.Y;
+    };
+    const _validateMove = (prevPos, nextPos) => {
+        let xLimit = {left: 0, right: Map.tileCount.X};
+        let yLimit = {top: 0, bottom: Map.tileCount.Y};
+        let result = {newPos: prevPos, message: ""};
+        let nextTile = Map.getTile(nextPos);
+        if (nextPos.X < xLimit.left || nextPos.X >= xLimit.right ||
+            nextPos.Y < yLimit.top || nextPos.Y >= yLimit.bottom) {
+            result.message = "Invalid move: Cannot move outside map";
+        } else if (nextTile.obstacle !== null && nextTile.obstacle.walkable === false) {
+            result.message = `Invalid move: ${nextTile.obstacle.name} in the way`;
+        } else {
+            result.newPos = nextPos;
+            result.message = `Moved from X:${prevPos.X},Y:${prevPos.Y} to X:${nextPos.X},Y:${nextPos.Y}`;
+        };
+        return result;
     };
     const move = (keyDown) => {
         pressedKey = `${keyDown.key}`.toLowerCase();
-        let oldPos = {X: pos.X, Y: pos.Y};
-        let newPos = {X: pos.X, Y: pos.Y};
-        if (pressedKey === moveUp && oldPos.Y !== 0) {
-            newPos.Y = (pos.Y - 1);
-        } else if (pressedKey === moveLeft && oldPos.X !== 0) {
-            newPos.X = (pos.X - 1);
-        } else if (pressedKey === moveDown && oldPos.Y < (Map.tileCount.Y - 1)) {
-            newPos.Y = (pos.Y + 1);
-        } else if (pressedKey === moveRight && oldPos.X < (Map.tileCount.X - 1)){
-            newPos.X = (pos.X + 1);
+        let prevPos = {X: pos.X, Y: pos.Y};
+        let nextPos = {X: pos.X, Y: pos.Y};
+        if (pressedKey === moveUp) {
+            nextPos.Y = (pos.Y - 1);
+        } else if (pressedKey === moveLeft) {
+            nextPos.X = (pos.X - 1);
+        } else if (pressedKey === moveDown) {
+            nextPos.Y = (pos.Y + 1);
+        } else if (pressedKey === moveRight){
+            nextPos.X = (pos.X + 1);
         } else {
             console.log(`Invalid key input: "${pressedKey}"`);
         };
-        _setPos(newPos.X, newPos.Y);
-        Map.updateTileActor(oldPos, null);
-        Map.updateTileActor(newPos, Player);
+        let validatedMove = _validateMove(prevPos, nextPos);
+        _setPos(validatedMove.newPos);
+        console.log(validatedMove.message);
+        if (prevPos !== validatedMove.newPos) {
+            Map.updateTileActor(prevPos, null);
+            Map.updateTileActor(nextPos, Player);
+        };
     };
 
     return {
@@ -134,6 +161,17 @@ const Actor = (actorType, actorImgSrc, startPos) => {
         pos,
         imgSrc,
         move,
+    };
+};
+const Obstacle = (obsName, obsImgSrc) => {
+    const name = obsName;
+    const imgSrc = obsImgSrc;
+    let walkable = false;
+
+    return {
+        name,
+        imgSrc,
+        walkable,
     };
 };
 
