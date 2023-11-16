@@ -12,20 +12,19 @@ const moveRight = "d";
 
 const Map = (function () {
     const tileSize = 32; // Will be converted to pixels
-    const tileCountX = 28; // Map width in tiles
-    const tileCountY = 18; // Map height in tiles
+    const tileCount = {X: 28, Y: 18}; // Map width and height in tiles
     const playerStartPos = {X: 11, Y: 6};
     const gridRows = [];
     const dirtChance = 0.07;
 
     const _setTileCounts = () => {
-        mapContainer.style.gridTemplateRows = `repeat(${tileCountY}, ${tileSize}px)`;
-        mapContainer.style.gridTemplateColumns = `repeat(${tileCountX}}, ${tileSize}px)`;
+        mapContainer.style.gridTemplateRows = `repeat(${tileCount.Y}, ${tileSize}px)`;
+        mapContainer.style.gridTemplateColumns = `repeat(${tileCount.X}}, ${tileSize}px)`;
     };
     const _createGrid = () => {
-        for (y = 1; y <= tileCountY; y++) {
+        for (y = 1; y <= tileCount.Y; y++) {
             let gridRow = [];
-            for (x = 1; x <= tileCountX; x++) {
+            for (x = 1; x <= tileCount.X; x++) {
                 let gridTileDiv = document.createElement('div');
                 gridTileDiv.style.gridArea = `${y} / ${x} / ${y+1} / ${x+1}`;
                 gridTileDiv.style.width = `${tileSize}px`;
@@ -47,9 +46,9 @@ const Map = (function () {
         };
     };
     const _populateGrid = () => {
-        for (y = 0; y < tileCountY; y++) {
+        for (y = 0; y < tileCount.Y; y++) {
             let gridRow = gridRows[y]; // Get row by grid y index
-            for (x = 0; x < tileCountX; x++) {
+            for (x = 0; x < tileCount.X; x++) {
                 let gridTile = gridRow[x]
                 let gridTileDiv = gridTile.div; // Get div by row x index
                 let tileImage = new Image(tileSize, tileSize);
@@ -93,6 +92,8 @@ const Map = (function () {
     };
 
     return {
+        tileSize,
+        tileCount,
         playerStartPos,
         initializeGrid,
         updateTileActor,
@@ -112,16 +113,16 @@ const Actor = (actorType, actorImgSrc, startPos) => {
         pressedKey = `${keyDown.key}`.toLowerCase();
         let oldPos = {X: pos.X, Y: pos.Y};
         let newPos = {X: pos.X, Y: pos.Y};
-        if (pressedKey === moveUp) {
+        if (pressedKey === moveUp && oldPos.Y !== 0) {
             newPos.Y = (pos.Y - 1);
-        } else if (pressedKey === moveLeft) {
+        } else if (pressedKey === moveLeft && oldPos.X !== 0) {
             newPos.X = (pos.X - 1);
-        } else if (pressedKey === moveDown) {
+        } else if (pressedKey === moveDown && oldPos.Y < (Map.tileCount.Y - 1)) {
             newPos.Y = (pos.Y + 1);
-        } else if (pressedKey === moveRight) {
+        } else if (pressedKey === moveRight && oldPos.X < (Map.tileCount.X - 1)){
             newPos.X = (pos.X + 1);
         } else {
-            console.log(`Invalid key input: "${pressedKey}" not bound to any action`);
+            console.log(`Invalid key input: "${pressedKey}"`);
         };
         _setPos(newPos.X, newPos.Y);
         Map.updateTileActor(oldPos, null);
