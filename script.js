@@ -14,6 +14,8 @@ const moveRight = "d";
 const Map = (function () {
     const tileSize = 32; // Will be converted to pixels
     const tileCount = {X: 35, Y: 21}; // Map width and height in tiles
+    const xLimit = {left: 0, right: (tileCount.X - 1)};
+    const yLimit = {top: 0, bottom: (tileCount.Y - 1)};
     const playerStartPos = {X: 11, Y: 6};
     const gridRows = [];
     const dirtChance = 0.13;
@@ -27,22 +29,24 @@ const Map = (function () {
         for (y = 1; y <= tileCount.Y; y++) {
             let gridRow = [];
             for (x = 1; x <= tileCount.X; x++) {
-                let gridTileDiv = document.createElement('div');
-                gridTileDiv.style.gridArea = `${y} / ${x} / ${y+1} / ${x+1}`;
-                gridTileDiv.style.width = `${tileSize}px`;
-                gridTileDiv.style.height = `${tileSize}px`;
-                gridTileDiv.classList.add('grid-tile');
-                mapContainer.appendChild(gridTileDiv);
-                const gridTile = {
-                    div: gridTileDiv,
+                let tileDiv = document.createElement('div');
+                tileDiv.style.gridArea = `${y} / ${x} / ${y+1} / ${x+1}`;
+                tileDiv.style.width = `${tileSize}px`;
+                tileDiv.style.height = `${tileSize}px`;
+                tileDiv.classList.add('grid-tile');
+                mapContainer.appendChild(tileDiv);
+                const tile = {
+                    div: tileDiv,
                     img: null,
-                    actor: null,
-                    obstacle: null,
+                    obstacles: [],
+                    constructs: [],
+                    actors: [],
                     items: [],
+                    walkable: true,
                     baseImgSrc: "",
                     displayImgSrc: "",
                 };
-                gridRow.push(gridTile);
+                gridRow.push(tile);
             };
             gridRows.push(gridRow);
         };
@@ -51,25 +55,26 @@ const Map = (function () {
         for (y = 0; y < tileCount.Y; y++) {
             let gridRow = gridRows[y]; // Get row by grid y index
             for (x = 0; x < tileCount.X; x++) {
-                let gridTile = gridRow[x]
-                let gridTileDiv = gridTile.div; // Get div by row x index
+                let tile = gridRow[x]
+                let tileDiv = tile.div; // Get div by row x index
                 let tileImage = new Image(tileSize, tileSize);
-                gridTile.img = tileImage;
+                tile.img = tileImage;
                 let baseImgSrc = "";
                 let randomNumber = Math.random();                
                 if (randomNumber <= wallChance) {
-                    let wallTile = Obstacle("wall", wallImgSrc);
-                    gridTile.obstacle = wallTile;
+                    let wallTile = Obstacle("wall", wallImgSrc, {X:x,Y:y});
+                    tile.obstacles.push(wallTile);
+                    tile.walkable = false;
                     baseImgSrc = wallTile.imgSrc;
                 } else if (randomNumber <= dirtChance) {
                     baseImgSrc = dirtImgSrc;
                 } else {
                     baseImgSrc = blankImgSrc;
                 };
-                gridTile.baseImgSrc = baseImgSrc;
-                gridTile.displayImgSrc = gridTile.baseImgSrc;
-                tileImage.src = gridTile.displayImgSrc;
-                gridTileDiv.appendChild(tileImage);
+                tile.baseImgSrc = baseImgSrc;
+                tile.displayImgSrc = tile.baseImgSrc;
+                tileImage.src = tile.displayImgSrc;
+                tileDiv.appendChild(tileImage);
             };
         };
     };
@@ -80,16 +85,58 @@ const Map = (function () {
     const getTile = (tilePos) => {
         return gridRows[tilePos.Y][tilePos.X];
     };
-    const updateTileActor = (tilePos, tileActor) => {
-        let tile = getTile(tilePos);
-        tile.actor = tileActor;
-        let newImgSrc = "";
-        if (tileActor === null) {
-            newImgSrc = tile.baseImgSrc;
-        } else {
-            newImgSrc = tileActor.imgSrc;
+    const tileWalkable = (tile) => {
+        let result = true;
+        let blocker = null;
+        for (x = 0; x < tile.obstacles.length; x++) {
+            let obstacle = tile.obstacles[x];
+            if (obstacle.walkable === false) {
+                result = false;
+                blocker = obstacle;
+                break;
+            };
         };
-        _updateTileImg(tile, newImgSrc);
+        if (result === true) {
+            for (x = 0; x < tile.constructs.length; x++) {
+                let construct = tile.constructs[x];
+                if (construct.walkable === false) {
+                    result = false;
+                    blocker = construct;
+                    break;
+                };
+            };
+        };
+        if (result === true) {
+            for (x = 0; x < tile.actors.length; x++) {
+                let actor = tile.actors[x];
+                if (actor.walkable === false) {
+                    result = false;
+                    blocker = actor;
+                    break;
+                };
+            };
+        };
+
+        return {result, blocker};
+    };
+    const removeEntity = (entity, listName, tilePos) => {
+        let tile = getTile(tilePos);
+        let entList = tile[listName];
+        if (entList.includes(entity) === true) {
+            let entIndex = entList.indexOf(entity);
+            entList.splice(entIndex, 1); // Remove entity from tile list
+        };
+        _updateTileImg(tile, tile.baseImgSrc);
+        return;
+    };
+    const addEntity = (entity, listName, tilePos) => {
+        let tile = getTile(tilePos);
+        let entList = tile[listName];
+        if (entList.includes(entity) === false) {
+            entList.push(entity);
+        };
+        _updateTileImg(tile, entity.imgSrc);
+        return;
     };
     const initializeGrid = () => {
         _setTileCounts();
@@ -100,36 +147,77 @@ const Map = (function () {
     return {
         tileSize,
         tileCount,
+        xLimit,
+        yLimit,
         playerStartPos,
         initializeGrid,
         getTile,
-        updateTileActor,
+        tileWalkable,
+        removeEntity,
+        addEntity,
     };
 })();
 
-const Actor = (actorType, actorImgSrc, startPos) => {
-    const type = actorType;
-    const pos = {X: startPos.X, Y: startPos.Y};
-    let imgSrc = actorImgSrc;
+const Entity = (entName, entImgSrc, entPos = {X:0,Y:0}) => {
+    let name = entName;
+    let imgSrc = entImgSrc;
+    let walkable = false;
+    let pos = entPos;
+
+    return {
+        name,
+        imgSrc,
+        walkable,
+        pos,
+    };
+};
+const Obstacle = (obsName, obsImgSrc, obsPos) => {
+    let {name, imgSrc, walkable, pos} = Entity(obsName, obsImgSrc, obsPos);
+
+    return {
+        name,
+        imgSrc,
+        walkable,
+        pos,
+    };
+};
+const Construct = (conName, conImgSrc) => {
+    const name = conName;
+    const imgSrc = conImgSrc;
+    let walkable = false;
+
+    return {
+        name,
+        imgSrc,
+        walkable,
+    };
+};
+const Actor = (actorName, actorImgSrc, startPos, actorType) => {
+    let {name, imgSrc, walkable, pos} = Entity(actorName, actorImgSrc);
+    pos.X = startPos.X;
+    pos.Y = startPos.Y;
+    let type = actorType;
 
     const _setPos = (newPos) => {
         pos.X = newPos.X;
         pos.Y = newPos.Y;
     };
     const _validateMove = (prevPos, nextPos) => {
-        let xLimit = {left: 0, right: Map.tileCount.X};
-        let yLimit = {top: 0, bottom: Map.tileCount.Y};
         let result = {newPos: prevPos, message: ""};
-        let nextTile = Map.getTile(nextPos);
-        if (nextPos.X < xLimit.left || nextPos.X >= xLimit.right ||
-            nextPos.Y < yLimit.top || nextPos.Y >= yLimit.bottom) {
+        if (nextPos.X < Map.xLimit.left || nextPos.X > Map.xLimit.right ||
+            nextPos.Y < Map.yLimit.top || nextPos.Y > Map.yLimit.bottom) {
             result.message = "Invalid move: Cannot move outside map";
-        } else if (nextTile.obstacle !== null && nextTile.obstacle.walkable === false) {
-            result.message = `Invalid move: ${nextTile.obstacle.name} in the way`;
         } else {
-            result.newPos = nextPos;
-            result.message = `Moved from X:${prevPos.X},Y:${prevPos.Y} to X:${nextPos.X},Y:${nextPos.Y}`;
+            let nextTile = Map.getTile(nextPos);
+            let tileWalkable = Map.tileWalkable(nextTile);
+            if (tileWalkable.result === false) {
+                result.message = `Can't move there, ${tileWalkable.blocker.name} in the way`;
+            } else if (tileWalkable.result === true) {
+                result.newPos = nextPos;
+                result.message = `${name} moved from X:${prevPos.X},Y:${prevPos.Y} to X:${nextPos.X},Y:${nextPos.Y}`;
+            };
         };
+        
         return result;
     };
     const move = (keyDown) => {
@@ -151,34 +239,25 @@ const Actor = (actorType, actorImgSrc, startPos) => {
         _setPos(validatedMove.newPos);
         console.log(validatedMove.message);
         if (prevPos !== validatedMove.newPos) {
-            Map.updateTileActor(prevPos, null);
-            Map.updateTileActor(nextPos, Player);
+            Map.removeEntity(Player, "actors", prevPos);
+            Map.addEntity(Player, "actors", validatedMove.newPos);
         };
     };
 
     return {
+        name,
         type,
         pos,
         imgSrc,
-        move,
-    };
-};
-const Obstacle = (obsName, obsImgSrc) => {
-    const name = obsName;
-    const imgSrc = obsImgSrc;
-    let walkable = false;
-
-    return {
-        name,
-        imgSrc,
         walkable,
+        move,
     };
 };
 
 Map.initializeGrid();
 
-const Player = Actor("player", playerImgSrc, Map.playerStartPos);
-Map.updateTileActor(Player.pos, Player);
+const Player = Actor("Player", playerImgSrc, Map.playerStartPos, "player");
+Map.addEntity(Player, "actors", Map.playerStartPos);
 document.addEventListener("keydown", Player.move)
 
 
