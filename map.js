@@ -1,4 +1,5 @@
 const Map = (function () {
+    const mapContainer = null;
     const tileSize = 32; // Will be converted to pixels
     const tileCount = {X: 38, Y: 26}; // Map width and height in tiles
     const xLimit = {left: 0, right: (tileCount.X - 1)};
@@ -125,7 +126,8 @@ const Map = (function () {
         _updateTileImg(tile, entity.imgSrc);
         return;
     };
-    const initializeGrid = () => {
+    const initializeGrid = (mapContainerDiv) => {
+        mapContainer = mapContainerDiv;
         _setTileCounts();
         _createGrid();
         _populateGrid();

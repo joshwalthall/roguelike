@@ -256,7 +256,7 @@ const Actor = (actorName, actorImgSrc, startPos, actorType) => {
     };
 };
 
-Map.initializeGrid();
+Map.initializeGrid(mapContainer);
 
 const Player = Actor("Player", playerImgSrc, Map.playerStartPos, "player");
 Map.addEntity(Player, "actors", Map.playerStartPos);
