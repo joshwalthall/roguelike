@@ -5,6 +5,7 @@ const blankImgSrc = "assets/img/blank.png";
 const playerImgSrc = "assets/img/player_32px.png";
 const dirtImgSrc = "assets/img/dirt.png";
 const brickWallImgSrc = "assets/img/wall.png";
+const doorImgSrc = "assets/img/door.png";
 
 const moveUp = "w";
 const moveLeft = "a";
@@ -152,7 +153,7 @@ const Entities = {
         brickWall: function() {return Obstacle("brick wall", brickWallImgSrc)},
     },
     constructs: {
-        placeholder: function() {return "placeholder"},
+        door: function() {return Construct("door", doorImgSrc)},
     },
     actors: {
         placeholder: function() {return "placeholder"},
@@ -161,14 +162,56 @@ const Entities = {
 
 const Player = Actor("Player", "player", playerImgSrc);
 
+// -=-=-=-=-=-=-= WORK IN PROGRESS =-=-=-=-=-=-=-=-
+// const Action = (actName) => {
+//     const name = actName;
+
+//     return {
+//         name,
+//     };
+// };
+
+// const WalkAction = (actor, targetPos) => {
+//     const {name} = Action("walk");
+
+//     const analyze = () => {
+
+//     };
+// };
+
+
 const Map = (function () {
     const tileSize = 32; // Will be converted to pixels
     const tileCount = {X: 38, Y: 28}; // Map width and height in tiles
     const xLimit = {left: 0, right: (tileCount.X - 1)};
     const yLimit = {top: 0, bottom: (tileCount.Y - 1)};
-    const playerStartPos = {X: 11, Y: 6};
     const gridRows = [];
 
+    const Tile = (tileDiv) => {
+        const div = tileDiv;
+        let img = new Image(tileSize, tileSize);
+        let floor = null;
+        let obstacles = [];
+        let constructs = [];
+        let actors = [];
+        let items = [];
+        let walkable = true;
+        let baseImgSrc = null;
+        let displayImgSrc = null;
+
+        return {
+            div,
+            img,
+            floor,
+            obstacles,
+            constructs,
+            actors,
+            items,
+            walkable,
+            baseImgSrc,
+            displayImgSrc,
+        }
+    };
     const _setTileCounts = () => {
         mapContainer.style.gridTemplateRows = `repeat(${tileCount.Y}, ${tileSize}px)`;
         mapContainer.style.gridTemplateColumns = `repeat(${tileCount.X}}, ${tileSize}px)`;
@@ -178,18 +221,7 @@ const Map = (function () {
             let gridRow = [];
             for (x = 1; x <= tileCount.X; x++) {
                 let tileDiv = document.createElement('div');
-                const tile = {
-                    div: tileDiv,
-                    img: new Image(tileSize, tileSize),
-                    floor: null,
-                    obstacles: [],
-                    constructs: [],
-                    actors: [],
-                    items: [],
-                    walkable: true,
-                    baseImgSrc: null,
-                    displayImgSrc: null,
-                };
+                const tile = Tile(tileDiv);
                 tileDiv.style.gridArea = `${y} / ${x} / ${y+1} / ${x+1}`;
                 tileDiv.style.width = `${tileSize}px`;
                 tileDiv.style.height = `${tileSize}px`;
@@ -294,6 +326,7 @@ const Map = (function () {
                 };
             };
         };
+        tile.walkable = result;
 
         return {result, blocker};
     };
@@ -322,11 +355,12 @@ const Map = (function () {
         "@": [Entities.floors.dirtFloor(), Player],
         ".": [Entities.floors.dirtFloor()],
         "#": [Entities.obstacles.brickWall()],
+        "+": [Entities.constructs.door()],
     }
     const initializeGrid = () => {
         _setTileCounts();
         _createGrid();
-        _populateGrid(Levels.level00);
+        _populateGrid(Levels.level01);
     };
 
     return {
@@ -334,7 +368,6 @@ const Map = (function () {
         tileCount,
         xLimit,
         yLimit,
-        playerStartPos,
         getTile,
         tileWalkable,
         addEntity,
@@ -342,6 +375,13 @@ const Map = (function () {
         tileIndex,
         initializeGrid,
     };
+})();
+
+const GameMaster = (function () {
+    // Turn queue
+    // Action requests
+    // Action results
+    // AI Director
 })();
 
 const Levels = {
@@ -385,10 +425,10 @@ const Levels = {
  #..................................# 
  #..................................# 
  #..................................# 
- #............###.###...............# 
+ #............###+###...............# 
  #............#.....#...............# 
  #............#.....#...............# 
- #...............@..................# 
+ #............+..@..+...............# 
  #............#.....#...............# 
  #............#.....#...............# 
  #............###.###...............# 
